@@ -1,0 +1,5 @@
+environments:
+  - name: dev
+    account: '162388713309'
+  - name: prod
+    account: '106565438851'
