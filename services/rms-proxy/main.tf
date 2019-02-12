@@ -3,6 +3,7 @@ variable "app_port" {}
 variable "fargate_cpu" {}
 variable "fargate_memory" {}
 variable "stage" {}
+variable "docker_tag" {}
 
 variable "region" {
   type    = "string"
@@ -171,7 +172,7 @@ resource "aws_ecs_task_definition" "app" {
 [
   {
     "cpu": ${var.fargate_cpu},
-    "image": "${data.terraform_remote_state.base_network.ecr_repo_url}:latest",
+    "image": "${data.terraform_remote_state.base_network.ecr_repo_url}:${var.docker_tag}",
     "memory": ${var.fargate_memory},
     "name": "${var.stage}-rms-proxy",
     "networkMode": "awsvpc",
