@@ -1,5 +1,4 @@
 variable "app_count" {}
-variable "app_image" {}
 variable "app_port" {}
 variable "fargate_cpu" {}
 variable "fargate_memory" {}
@@ -116,6 +115,12 @@ resource "aws_lb_target_group" "app" {
   protocol    = "HTTP"
   vpc_id      = "${data.terraform_remote_state.base_network.vpc_id}"
   target_type = "ip"
+  health_check {
+    path = "/health"
+    healthy_threshold = 5
+    unhealthy_threshold = 2
+    interval = 30
+  }
 }
 
 data "aws_acm_certificate" "ssl_cert" {
@@ -160,15 +165,24 @@ resource "aws_ecs_task_definition" "app" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "${var.fargate_cpu}"
   memory                   = "${var.fargate_memory}"
+  execution_role_arn       = "${data.terraform_remote_state.base_network.ecr_role_arn}"
 
   container_definitions = <<DEFINITION
 [
   {
     "cpu": ${var.fargate_cpu},
-    "image": "${var.app_image}",
+    "image": "${data.terraform_remote_state.base_network.ecr_repo_url}:latest",
     "memory": ${var.fargate_memory},
     "name": "${var.stage}-rms-proxy",
     "networkMode": "awsvpc",
+    "logConfiguration": {
+       "logDriver": "awslogs",
+       "options": {
+          "awslogs-group" : "/ecs/${var.stage}-rms-proxy",
+          "awslogs-region": "${var.region}",
+          "awslogs-stream-prefix": "ecs"
+      }
+    },
     "portMappings": [
       {
         "containerPort": ${var.app_port},

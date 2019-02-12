@@ -86,9 +86,58 @@ resource "aws_route_table_association" "private" {
   route_table_id = "${element(aws_route_table.private.*.id, count.index)}"
 }
 
+# ECR Repository
+resource "aws_ecr_repository" "rms_proxy" {
+  name = "${var.stage}-rms_proxy"
+}
+
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.stage}-ecs-cluster"
+}
+
+# ECR IAM Role
+data "aws_iam_policy_document" "ecs_trust_policy" {
+  statement {
+    actions = [
+      "sts:AssumeRole",
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ecr_role" {
+  name               = "ECSToECRRole"
+  assume_role_policy = "${data.aws_iam_policy_document.ecs_trust_policy.json}"
+}
+
+data "aws_iam_policy_document" "ecr_policy" {
+  statement {
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:GetAuthorizationToken",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "ecr_policy" {
+  name   = "ECRPolicy"
+  role   = "${aws_iam_role.ecr_role.id}"
+  policy = "${data.aws_iam_policy_document.ecr_policy.json}"
+}
+
+resource "aws_cloudwatch_log_group" "ecs_group" {
+  name = "/ecs/${var.stage}-rms-proxy"
 }
 
 output "vpc_id" {
@@ -105,4 +154,12 @@ output "private_subnet_ids" {
 
 output "ecs_cluster_id" {
   value = "${aws_ecs_cluster.main.id}"
+}
+
+output "ecr_repo_url" {
+  value = "${aws_ecr_repository.rms_proxy.repository_url}"
+}
+
+output "ecr_role_arn" {
+  value = "${aws_iam_role.ecr_role.arn}"
 }
