@@ -1,10 +1,6 @@
 variable "az_count" {}
 variable "stage" {}
-
-variable "region" {
-  type    = "string"
-  default = "us-west-2"
-}
+variable "region" {}
 
 # Configure the remote-state backend.
 terraform {

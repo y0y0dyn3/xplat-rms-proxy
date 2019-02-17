@@ -4,11 +4,7 @@ variable "fargate_cpu" {}
 variable "fargate_memory" {}
 variable "stage" {}
 variable "docker_tag" {}
-
-variable "region" {
-  type    = "string"
-  default = "us-west-2"
-}
+variable "region" {}
 
 # Configure the remote-state backend.
 terraform {
