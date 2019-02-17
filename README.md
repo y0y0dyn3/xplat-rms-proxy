@@ -19,5 +19,25 @@ Proxies HTTPS requests to various vendor agent packages through one location.
 
 ## Endpoints
 * user stages: https://<github_username>.dev.packages.security.rackspace.com
-* dev stage: https://dev.packages.security.rackspace.com
-* prod stage: https://packages.security.rackspace.com
+* dev stage: https://dev.packages.security.rackspace.com (us-west-2)
+* prod stage: https://packages.security.rackspace.com (us-east-1)
+
+## AWS Accounts
+* [Dev](https://manage.rackspace.com/racker/rackspace-accounts/978570/aws-accounts/162388713309)
+* [Prod](https://manage.rackspace.com/racker/rackspace-accounts/978570/aws-accounts/106565438851)
+
+## Deployment
+These steps must be run in the following order to ensure dependencies are met. Make sure to use `us-east-1` for `prod`:
+
+* `services/rms-proxy-base-network`
+  * `bash -x deploy.sh dev rms-proxy-base-network ./services/rms-proxy-base-network`
+* `services/nginx`
+      eval $(aws ecr get-login --no-include-email --region us-west-2)
+
+      export repo_uri=$(aws ecr describe-repositories --region us-west-2 |jq ".repositories[0].repositoryUri")
+
+      docker build -t $repo_uri:$(git rev-parse --short HEAD) services/nginx
+
+      docker push $repo_uri
+* `services/rms-proxy`
+  * `bash -x deploy.sh dev rms-proxy ./services/rms-proxy`
