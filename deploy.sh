@@ -44,9 +44,9 @@ run_terraform() {
     -backend-config="bucket=${BUCKET}" \
     -backend-config="region=${S3_REGION}" \
     -backend-config="key=${SERVICE_NAME}/${STAGE}/terraform.tfstate"
-  terraform plan -var "stage=${STAGE}" -var-file=${VARSFILESTAGE}.tfvars\
-    -out=terraform.plan
- terraform apply -auto-approve terraform.plan
+  terraform plan -var "stage=${STAGE}" -var "docker_tag=$(git rev-parse --short HEAD)" \
+    -var-file=${VARSFILESTAGE}.tfvars -out=terraform.plan
+  terraform apply -auto-approve terraform.plan
 }
 
 pushd "${SERVICE_DIR}"
