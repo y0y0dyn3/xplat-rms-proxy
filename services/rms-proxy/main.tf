@@ -156,6 +156,11 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# Cloudwatch
+resource "aws_cloudwatch_log_group" "rms-proxy" {
+  name = "/ecs/${var.stage}-rms-proxy"
+}
+
 # ECS - Fargate
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.stage}-rms-proxy"
