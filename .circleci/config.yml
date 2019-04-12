@@ -51,6 +51,7 @@ jobs:
       <<: *default_env
     steps:
       - checkout
+      - setup_remote_docker
       - attach_workspace:
           at: /tmp/src
       - run:
@@ -78,6 +79,7 @@ jobs:
       <<: *default_env
     steps:
       - checkout
+      - setup_remote_docker      
       - attach_workspace:
           at: /tmp/src
       - run:
