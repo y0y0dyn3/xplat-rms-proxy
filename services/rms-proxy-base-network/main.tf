@@ -119,7 +119,7 @@ data "aws_iam_policy_document" "ecr_policy" {
       "ecr:GetDownloadUrlForLayer",
       "ecr:GetAuthorizationToken",
       "logs:CreateLogStream",
-      "logs:PutLogEvents"
+      "logs:PutLogEvents",
     ]
 
     resources = ["*"]
