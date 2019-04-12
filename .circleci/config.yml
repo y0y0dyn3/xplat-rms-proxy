@@ -56,7 +56,7 @@ jobs:
       - run:
           name: Deploy
           command: |
-            export repo_uri=$(fleece run -e dev 'aws ecr describe-repositories --region us-west-2 |jq ".repositories[0].repositoryUri"')
+            export repo_uri=$(fleece run -e dev 'aws ecr describe-repositories --region us-west-2 |jq -r ".repositories[0].repositoryUri"')
             echo "Setting Docker Repo to $repo_uri ..."
             echo "Logging in to $repo_uri ..."
             eval $(fleece run -e dev "aws ecr get-login --no-include-email --region us-west-2")
@@ -83,7 +83,7 @@ jobs:
       - run:
           name: Deploy
           command: |
-            export repo_uri=$(fleece run -e prod 'aws ecr describe-repositories --region us-east-1 |jq ".repositories[0].repositoryUri"')
+            export repo_uri=$(fleece run -e prod 'aws ecr describe-repositories --region us-east-1 |jq -r ".repositories[0].repositoryUri"')
             echo "Setting Docker Repo to $repo_uri ..."
             echo "Logging in to $repo_uri ..."
             eval $(fleece run -e prod "aws ecr get-login --no-include-email --region us-east-1")
