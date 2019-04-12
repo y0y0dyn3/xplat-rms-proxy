@@ -9,12 +9,17 @@ export PATH
 PATH=$(pwd)/bin:$PATH
 
 if [ -z "${STAGE}" ]; then
-  echo "Usage: ./deploy.sh <stage> <service_name> <service_directory> [s3_region]"
+  echo "Usage: ./destroy.sh <stage> <service_name> <service_directory> [s3_region]"
   exit 1
 fi
 
-# Use dev.tfvars in dev, prod.tfvars in prod
-[[ $STAGE = "prod" ]] && VARSFILESTAGE="prod" || VARSFILESTAGE="dev"
+if [ "${STAGE}" = "prod"]; then
+  echo "Do not use this for production!"
+  exit 1
+fi
+
+# Use dev.tfvars in dev
+VARSFILESTAGE="dev"
 
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --output text --query "Account")
 BUCKET="${AWS_ACCOUNT_ID}-terraform"
@@ -44,9 +49,10 @@ run_terraform() {
     -backend-config="bucket=${BUCKET}" \
     -backend-config="region=${S3_REGION}" \
     -backend-config="key=${SERVICE_NAME}/${STAGE}/terraform.tfstate"
-  terraform plan -var "stage=${STAGE}" -var "docker_tag=$(git rev-parse --short HEAD)" \
+  terraform plan -destroy -var "stage=${STAGE}" -var "docker_tag=$(git rev-parse --short HEAD)" \
     -var-file=${VARSFILESTAGE}.tfvars -out=terraform.plan
-  terraform apply -auto-approve terraform.plan
+#  terraform destroy -auto-approve -var "stage=${STAGE}" -var "docker_tag=$(git rev-parse --short HEAD)" \
+#    -var-file=${VARSFILESTAGE}.tfvars
 }
 
 pushd "${SERVICE_DIR}"

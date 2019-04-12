@@ -79,7 +79,7 @@ jobs:
       <<: *default_env
     steps:
       - checkout
-      - setup_remote_docker      
+      - setup_remote_docker
       - attach_workspace:
           at: /tmp/src
       - run:
@@ -155,6 +155,22 @@ jobs:
       <<: *default_env
       # Since we are deploying a named we need to override DEPLOY_NAMED to 1
       DEPLOY_NAMED_BRANCH: 1
+
+  destroy-rms-proxy-user:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            export DEPLOY_NAME=${CIRCLE_PR_USERNAME:-$CIRCLE_USERNAME}
+            fleece run -e dev "bash -x destroy.sh ${DEPLOY_NAME} rms-proxy ./services/rms-proxy"
 
   deploy-rms-proxy-prod:
     working_directory: /tmp/src
@@ -255,6 +271,22 @@ workflows:
           filters:
             branches:
               only: master
+
+      - CLICK HERE TO DESTROY:
+          type: approval
+          requires:
+            - deploy-rms-proxy-user
+          filters:
+            branches:
+              ignore: master
+
+      - destroy-rms-proxy-user:
+          filters:
+            branches:
+              ignore:
+                - master
+          requires:
+            - CLICK HERE TO DESTROY
 
       # End rms-proxy workflow
 
