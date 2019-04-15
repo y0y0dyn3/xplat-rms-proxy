@@ -1,0 +1,302 @@
+---
+version: 2
+
+DEFAULT_ENV: &default_env
+  AWS_DEFAULT_REGION: us-east-1
+  # This will force a named environment to be deployed when passed as a 1
+  DEPLOY_NAMED: 0
+
+jobs:
+  install-deploy-tools:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - deploy-tools-{{ checksum "scripts/install-deploy-tools.sh" }}
+      - run: ./scripts/install-deploy-tools.sh
+      - save_cache:
+          key: deploy-tools-{{ checksum "scripts/install-deploy-tools.sh" }}
+          paths:
+            - "/tmp/src/bin"
+      - persist_to_workspace:
+          root: /tmp/src
+          paths:
+            - "bin"
+
+  lint-terraform:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Lint Terraform
+          command: bin/terraform fmt -check=True
+
+  # Start Jobs for nginx
+  deploy-nginx-dev: &nginx_user_job
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            export repo_uri=$(fleece run -e dev 'aws ecr describe-repositories --region us-west-2 |jq -r ".repositories[0].repositoryUri"')
+            echo "Setting Docker Repo to $repo_uri ..."
+            echo "Logging in to $repo_uri ..."
+            eval $(fleece run -e dev "aws ecr get-login --no-include-email --region us-west-2")
+            echo "Login successful ..."
+            echo "Building container image ..."
+            docker build -t $repo_uri:$(git rev-parse --short HEAD) services/nginx
+            echo "Pushing image to $repo_uri ..."
+            docker push $repo_uri
+
+  # The nginx user deploy is more or less the same as dev
+  deploy-nginx-user:
+    <<: *nginx_user_job
+
+  deploy-nginx-prod:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            export repo_uri=$(fleece run -e prod 'aws ecr describe-repositories --region us-east-1 |jq -r ".repositories[0].repositoryUri"')
+            echo "Setting Docker Repo to $repo_uri ..."
+            echo "Logging in to $repo_uri ..."
+            eval $(fleece run -e prod "aws ecr get-login --no-include-email --region us-east-1")
+            echo "Login successful ..."
+            echo "Building container image ..."
+            docker build -t $repo_uri:$(git rev-parse --short HEAD) services/nginx
+            echo "Pushing image to $repo_uri ..."
+            docker push $repo_uri
+
+  # End jobs for nginx
+
+  # Start jobs for rms-proxy-base-network
+  deploy-rms-proxy-base-network-dev:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            : ${DEPLOY_NAME:=dev}
+            fleece run -e dev "bash -x deploy.sh dev rms-proxy-base-network ./services/rms-proxy-base-network"
+
+  deploy-rms-proxy-base-network-prod:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            : ${DEPLOY_NAME:=prod}
+            fleece run -e prod "bash -x deploy.sh prod rms-proxy-base-network ./services/rms-proxy-base-network"
+  # End jobs for rms-proxy-base-network
+
+  # Start jobs for rms-proxy
+  deploy-rms-proxy-dev: &rms_proxy_job
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            : ${DEPLOY_NAME:=dev}
+            if [[ $DEPLOY_NAMED_BRANCH -eq 1 ]]; then export DEPLOY_NAME=${CIRCLE_PR_USERNAME:-$CIRCLE_USERNAME}; fi
+            fleece run -e dev "bash -x deploy.sh ${DEPLOY_NAME} rms-proxy ./services/rms-proxy"
+
+  deploy-rms-proxy-user:
+    <<: *rms_proxy_job
+    environment:
+      <<: *default_env
+      # Since we are deploying a named we need to override DEPLOY_NAMED to 1
+      DEPLOY_NAMED_BRANCH: 1
+
+  destroy-rms-proxy-user:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            export DEPLOY_NAME=${CIRCLE_PR_USERNAME:-$CIRCLE_USERNAME}
+            fleece run -e dev "bash -x destroy.sh ${DEPLOY_NAME} rms-proxy ./services/rms-proxy"
+
+  deploy-rms-proxy-prod:
+    working_directory: /tmp/src
+    docker:
+      - image: ryandub/xplat-ci-images:latest
+    environment:
+      <<: *default_env
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/src
+      - run:
+          name: Deploy
+          command: |
+            : ${DEPLOY_NAME:=dev}
+            fleece run -e prod "bash -x deploy.sh prod rms-proxy ./services/rms-proxy"
+
+workflows:
+  version: 2
+  CI_CD:
+    jobs:
+      - install-deploy-tools
+
+      - lint-terraform:
+          requires:
+            - install-deploy-tools
+
+      # Start rms-proxy workflow
+
+      - deploy-nginx-user:
+          filters:
+            branches:
+              ignore:
+                - master
+          requires:
+            - lint-terraform
+
+      - deploy-nginx-dev:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - deploy-rms-proxy-base-network-dev
+
+      - deploy-nginx-prod:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - deploy-rms-proxy-base-network-prod
+
+      - deploy-rms-proxy-base-network-dev:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - lint-terraform
+
+      - deploy-rms-proxy-base-network-prod:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - hold
+
+      - deploy-rms-proxy-user:
+          filters:
+            branches:
+              ignore:
+                - master
+          requires:
+            - deploy-nginx-user
+
+      - deploy-rms-proxy-dev:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - deploy-nginx-dev
+
+      - deploy-rms-proxy-prod:
+          filters:
+            branches:
+              only:
+                - master
+          requires:
+            - deploy-nginx-prod
+
+      - hold:
+          type: approval
+          requires:
+            - deploy-rms-proxy-dev
+          filters:
+            branches:
+              only: master
+
+      - CLICK HERE TO DESTROY:
+          type: approval
+          requires:
+            - deploy-rms-proxy-user
+          filters:
+            branches:
+              ignore: master
+
+      - destroy-rms-proxy-user:
+          filters:
+            branches:
+              ignore:
+                - master
+          requires:
+            - CLICK HERE TO DESTROY
+
+      # End rms-proxy workflow
+
+experimental:
+  notify:
+    branches:
+      only:
+        - master
+        - prod
+
+notify:
+  webhooks:
+    - url: https://hermes.data.security.rackspace.com/circle

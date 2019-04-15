@@ -112,11 +112,12 @@ resource "aws_lb_target_group" "app" {
   protocol    = "HTTP"
   vpc_id      = "${data.terraform_remote_state.base_network.vpc_id}"
   target_type = "ip"
+
   health_check {
-    path = "/health"
-    healthy_threshold = 5
+    path                = "/health"
+    healthy_threshold   = 5
     unhealthy_threshold = 2
-    interval = 30
+    interval            = 30
   }
 }
 
@@ -153,6 +154,11 @@ resource "aws_lb_listener" "http" {
       status_code = "HTTP_301"
     }
   }
+}
+
+# Cloudwatch
+resource "aws_cloudwatch_log_group" "rms-proxy" {
+  name = "/ecs/${var.stage}-rms-proxy"
 }
 
 # ECS - Fargate
