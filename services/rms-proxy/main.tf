@@ -159,7 +159,7 @@ resource "aws_lb_listener" "http" {
 #Regional WAF
 module "regional_waf" {
   source   = "github.com/rackerlabs/xplat-terraform-modules//modules/regional-waf"
-  api_name = "${var.service_name}"
+  api_name = "${aws_lb.main.name}"
   stage    = "${var.stage}"
   region   = "${var.region}"
 
