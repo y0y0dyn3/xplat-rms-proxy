@@ -175,13 +175,13 @@ module "regional_waf" {
   # Set to COUNT when introducing a new rule, until you 
   # are certain that rule is behaving as intended.
   # Default in variables.tf = COUNT.
-  ip_blacklist_default_action = "COUNT" # currently an empty set.  Use the UI to add new IPs in an emergency.
+  ip_blacklist_default_action = "BLOCK" # currently an empty set.  Use the UI to add new IPs in an emergency.
 
-  rate_ip_throttle_default_action     = "COUNT"
-  xss_match_rule_default_action       = "COUNT"
-  byte_match_traversal_default_action = "COUNT"
-  byte_match_webroot_default_action   = "COUNT"
-  sql_injection_default_action        = "COUNT"
+  rate_ip_throttle_default_action     = "BLOCK"
+  xss_match_rule_default_action       = "BLOCK"
+  byte_match_traversal_default_action = "BLOCK"
+  byte_match_webroot_default_action   = "BLOCK"
+  sql_injection_default_action        = "BLOCK"
 
   # Requests per 5 minutes.  Default in variables.tf = 5000.
   rate_ip_throttle_limit = 2000
